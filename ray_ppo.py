@@ -1,5 +1,4 @@
-from ray.tune.logger import pretty_print
-from ray import air
+# from ray.tune.logger import pretty_print
 from ray import tune
 from ray.rllib.algorithms.ppo import PPOConfig
 from ray.rllib.utils.framework import try_import_tf, try_import_torch
@@ -18,27 +17,27 @@ warnings.filterwarnings('ignore', category=DeprecationWarning)
 
 
 class SupermarketEnvironment(gym.Env):
-    def __init__(self, config: dict):
+    def __init__(self):
         self.supermarket_data = pd.read_excel(f'{os.getcwd()}/data/supermarket.xlsx')
         self.constraints_data = pd.read_excel(f'{os.getcwd()}/data/constraints.xlsx')
         self.seasonal_changes_data = pd.read_excel(f'{os.getcwd()}/data/behaviors.xlsx')
 
-        self.pipe_names = self.supermarket_data.iloc[:, 1:21].values
+        self.pipe_names = self.supermarket_data.iloc[:, 1:21].columns
         self.week = self.supermarket_data.iloc[1:74, :1].values
 
         self.pipe_quantities = self.supermarket_data.iloc[:, 1:21].values
 
         self.max_quantities = self.constraints_data.iloc[0:22, 1].values
         self.min_quantities = self.constraints_data.iloc[0:22, 2].values
-        self.avg_quantities = self.constraints_data.iloc[0:22, 3].values
+        self.avg_quantities = self.constraints_data.iloc[0:22, 3].values.astype(np.int64)
         print(self.max_quantities)
 
-        self.seasonal_changes = self.seasonal_changes_data.iloc[:, 1:].values
+        self.seasonal_changes = self.seasonal_changes_data.iloc[:, 1:].values.astype(np.int64)
         self.action_space = Discrete(self.supermarket_data.shape[1] - 1)
         self.observation_space = Box(
-            low=np.zeros(shape=(20,),
-                         dtype=np.int32),
-            high=np.asarray([25000 for _ in range(20)]), dtype=np.int32)
+            low=np.zeros(shape=(20,), dtype=np.int64),
+            high=np.asarray([25000 for _ in range(20)], dtype=np.int64),
+            dtype=np.int64)  # int64
         self.current_week = 0
         self.current_quantities = self.pipe_quantities[self.current_week]
 
@@ -49,17 +48,11 @@ class SupermarketEnvironment(gym.Env):
         self.current_quantities[action] += self.seasonal_changes[self.current_week % seasonal_fix][action]
         if self.current_quantities[action] == self.avg_quantities[action]:
             reward = -5
-            # print('punish for producing average, punish range, production', reward,self.current_quantities -
-            # self.avg_quantities)
         elif self.current_quantities[action] > self.max_quantities[action]:
             reward = -10
-            # print('punish for exceeding the maximum limit, punish range, production', reward,self.max_quantities -
-            # self.current_quantities)
             self.current_quantities[action] = self.max_quantities[action]
         elif self.current_quantities[action] < self.min_quantities[action]:
             reward = -10
-            # print('punish for exceeding the minimum limit, punish range, production', reward,self.min_quantities -
-            # self.current_quantities)
             self.current_quantities[action] = self.min_quantities[action]
 
         self.current_week += 1
@@ -68,41 +61,19 @@ class SupermarketEnvironment(gym.Env):
         next_observation = np.array(self.current_quantities)
         return next_observation, reward, terminated, truncated, {}
 
-    def print_info(self):
-        print("Week Number:", self.current_week)
-        # print("Total Reward:", self.total_reward)
-        print("Number of Total Pipes:", self.current_quantities)
-        print("Number of Produced Pipes:", self.pipe_quantities)
-
     def reset(self, *, seed=None, options=None):
         np.random.seed(seed)
         super().reset(seed=seed)
         self.current_week = 0
         self.current_quantities = self.pipe_quantities[self.current_week]
-        return self.observation_space.sample(), {}
+        return self.current_quantities, {}
 
     def render(self):
         pass
 
 
-# env = SupermarketEnvironment(config={})
-# observation = env.reset()
-# done = False
-# total_reward = 0
-# while not done:
-#     action = env.action_space.sample()
-#     next_observation, reward, done, truncated, info = env.step(action)
-#     total_reward += reward
-#     env.render()
-#     observation = next_observation
-
-#     print(action, next_observation, reward, done, truncated, info)
-
-#     env.close()
-
-
 # register the new environment
-register_env('Supermarket', lambda config: SupermarketEnvironment(config={}))
+register_env('Supermarket', lambda config_: SupermarketEnvironment())
 
 # define the configuration for PPO
 config = (
@@ -116,13 +87,14 @@ config = (
 
 config.training(
     lr=tune.grid_search([1e-3, 1e-4, 1e-5]),
-    gamma=tune.grid_search([0.90, 0.95, 0.99]),
+    gamma=tune.grid_search([0.90, 0.99]),
     model={'fcnet_hiddens': tune.grid_search([[4, 4], [8, 8], [16, 16], [32, 32], [64, 64]]),
            'use_lstm': tune.grid_search([False, True])},
 )
 
+# SUITABLE AFTER THE GRID SEARCH
 # ****************************************************
-# config['output'] = f'{os.getcwd()}/logs'
+# config['output'] = f'{os.getcwd()}/ray_results'
 
 # algo = config.build()
 # for i in range(100):
@@ -132,30 +104,24 @@ config.training(
 # algo.evaluate()
 # ****************************************************
 
+# SUITABLE FOR GRID SEARCH
 # ****************************************************
-# tune.run(
-#     'PPO',
-#     config=config.to_dict(),
-#     # training iteration 1000 can be used for grid search
-#     # training iteration can be set to 10,000 after best hyperparameters are found
-#     stop={'training_iteration': 1000,
-#           'timesteps_total': 100000,
-#           'episode_reward_mean': 0.1},
-#     verbose=1,
-#     name='Supermarket',
-#     local_dir='./ray_results',
-# )
-# ****************************************************
-
-# ****************************************************
-# tune.Tuner(
-#     trainable="PPO",
-#     run_config=air.RunConfig(
-#         stop={"training_iteration": 100,
-#               "timesteps_total": 100000,
-#               "episode_reward_mean": 0.1},
-#         local_dir="./ray_results",
-#     ),
-#     param_space=config.to_dict(),
-# ).fit()
+tune.run(
+    'PPO',
+    config=config.to_dict(),
+    # training iteration 1000 can be used for grid search
+    # training iteration can be set to 10,000 after the best hyperparameters are found
+    stop={'training_iteration': 10,
+          # 'timesteps_total': 100000,
+          # 'episode_reward_mean': 0.1
+          },
+    verbose=1,
+    progress_reporter=tune.CLIReporter(
+        parameter_columns=['lr', 'gamma', 'model/fcnet_hiddens', 'model/use_lstm'],
+        metric_columns=['episode_reward_mean', 'episodes_total', 'training_iteration'],
+        max_progress_rows=60,
+    ),
+    # local_dir='./ray_results',
+    local_dir='./grid_results',
+)
 # ****************************************************
