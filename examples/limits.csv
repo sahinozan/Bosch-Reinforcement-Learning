@@ -1,0 +1,5 @@
+item_id,capacity,initial_stock,replenishment
+SYN-ITEM-01,60,30,25
+SYN-ITEM-02,60,30,25
+SYN-ITEM-03,60,30,25
+SYN-ITEM-04,60,30,25
