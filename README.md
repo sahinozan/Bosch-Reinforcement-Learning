@@ -1,41 +1,44 @@
-# Bosch-Reinforcement-Learning
+# Bosch Senior Project — Reinforcement Learning
 
-A small public demonstration of an inventory environment and optional PPO training. All sample demand, inventory limits, item identifiers, and policy costs are invented. The repository name remains a historical project label; this edition does not describe a company's inventory or policies.
+This repository contains the reinforcement learning work from a bachelor's senior project completed as a team in collaboration with Bosch. We explored how inventory decisions could be represented in a custom environment and approached with reinforcement learning.
 
-**Sanitized public demo:** This project has been adapted for public sharing through synthetic-data replacement and generalization of company-specific behavior. [Read what changed and why](#sanitization-for-public-sharing).
+The original experiments were specific to the company's data and constraints. This repository is shared as an academic portfolio project, with a small public demo illustrating the idea rather than a validated inventory-management solution.
 
-## Run
+## What the project covered
 
-Use Python 3.11 or newer in a virtual environment:
+- Representing inventory levels, actions, and constraints in a custom environment.
+- Defining rewards to evaluate inventory decisions.
+- Experimenting with Proximal Policy Optimization (PPO) through Ray/RLlib.
+
+**Technologies:** Python, NumPy, pandas, Gymnasium, Ray/RLlib, and PyTorch in the current PPO demo.
+
+## Sanitization for public sharing
+
+Original demand and constraint workbooks, experiment logs, serialized results, personal paths, and machine identifiers are omitted from this version. Company-specific rules have been replaced with a simplified inventory model.
+
+The public demo uses four fictional items with invented demand, stock limits, replenishment quantities, and reward costs. Sample data is generated from scratch by `generate_demo.py`, without using original records or their statistics. Training results apply only to this toy environment and do not reproduce the original experiments.
+
+## Try the example
+
+With Python 3.11 or newer, run these commands from the repository directory, preferably in a virtual environment:
 
 ```sh
 python -m pip install -r requirements.txt
 python demo.py
 ```
 
-The random-policy demo completes one 52-week episode. No model or external service is needed. Recreate the committed examples with `python generate_demo.py`; the generator reads no original data.
+This runs a random policy for one 52-week episode. At each step, the policy can replenish one item or wait; the environment then applies demand and calculates a reward based on shortages and remaining stock.
 
-## Environment
-
-The observation contains each of four fictional items' stock as a fraction of capacity, followed by episode progress. Action zero waits; actions one through four replenish one item. Demand is then fulfilled up to available stock. The reward is minus two per lost unit and minus 0.01 per unit remaining in stock. These numbers are arbitrary teaching choices.
-
-Reset restores the initial stock without changing the input arrays. The episode ends after the last sample week. The generic CSV schema is documented by the headers of `examples/demand.csv` and `examples/limits.csv`.
-
-## Optional PPO example
+For an optional short PPO training run:
 
 ```sh
 python -m pip install -r requirements-training.txt
 python ray_ppo.py --iterations 1
 ```
 
-This uses CPU-only training with a small batch. Importing the module does not start training. Generated logs stay under the ignored `outputs/` directory; runtime logs can contain local machine information and should not be committed. A single iteration demonstrates the integration, not a useful trained policy.
+Training outputs stay in the ignored `outputs/` directory. Regenerate the sample data with `python generate_demo.py`.
 
-## Sanitization for public sharing
+## Related senior-project repositories
 
-This edition demonstrates the project's technical ideas while excluding operational records and personal information. The sample data is generated from scratch by `generate_demo.py`, without reading original records or deriving values from their statistics. Item identifiers, demand, inventory limits, replenishment quantities, and policy costs are invented.
-
-The original demand, behavior, and constraint workbooks, parameter PDF, experiment directories, serialized results, and saved notebook outputs are omitted. The environment's operational rules have been replaced with the toy model above. Old experimental results are not reproducible from these unrelated examples and no performance claim is carried over.
-
-Personal filesystem paths, machine identifiers, and identifying document metadata have been removed from the published files. The public demo starts with a fresh initial commit containing the sanitized edition. These changes are described as **sanitization and synthetic-data replacement**; rewards and training results describe only the toy environment.
-
-Run checks with `python -m pip install pytest` and `python -m pytest tests`. The tests include Gymnasium's environment checker and a full episode/reset check.
+- [Excel Integration](https://github.com/sahinozan/Bosch-Excel-Integration) — production-plan processing and Excel reporting.
+- [Forecasting](https://github.com/sahinozan/Bosch-Forecasting) — time-series analysis and forecasting experiments.
